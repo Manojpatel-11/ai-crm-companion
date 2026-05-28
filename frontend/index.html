@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Call Summary Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center py-10 px-4">
+
+    <div class="max-w-4xl w-full space-y-8">
+        <div class="text-center">
+            <h1 class="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                Real Estate AI Agent Companion
+            </h1>
+            <p class="text-slate-400 mt-2">Transform chaotic agent voice or text notes into clean, structured CRM entries.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl flex flex-col justify-between">
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-slate-300">Enter Post-Call Raw Notes</label>
+                    <textarea id="rawNote" rows="8" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors resize-none" 
+placeholder="Example: Met with Suresh Kumar. He is looking for a plot near Shadnagar. His budget is max 30 lakhs. Wants a site visit scheduled for Saturday morning at 11 AM if we can pick him up. Need to WhatsApp him the brochure tonight."></textarea>
+                </div>
+                
+                <button onclick="processNote()" id="submitBtn" class="mt-4 w-full bg-gradient-to-r from-blue-500 to-emerald-500 hover:from-blue-600 hover:to-emerald-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg transform transition active:scale-[0.98] flex justify-center items-center gap-2">
+                    <span>Process & Sync CRM</span>
+                </button>
+            </div>
+
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl space-y-4">
+                <h2 class="text-lg font-bold text-slate-200 border-b border-slate-700 pb-2">AI Extraction Results</h2>
+                
+                <div id="loading" class="hidden flex flex-col items-center justify-center py-12 space-y-3">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400"></div>
+                    <p class="text-slate-400 text-sm">AI is analyzing context...</p>
+                </div>
+
+                <div id="outputContent" class="space-y-4">
+                    <div>
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Lead Status</span>
+                        <div id="badge" class="mt-1 inline-block text-xs font-bold px-3 py-1 rounded-full bg-slate-700 text-slate-300">Waiting for input...</div>
+                    </div>
+
+                    <div>
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Summary</span>
+                        <p id="summary" class="text-sm text-slate-300 mt-1 italic">Submit a note to generate a summary.</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700/50">
+                            <span class="text-xs font-semibold text-slate-400">Extracted Budget</span>
+                            <p id="budget" class="text-sm font-bold text-emerald-400 mt-0.5">—</p>
+                        </div>
+                        <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700/50">
+                            <span class="text-xs font-semibold text-slate-400">Target Location</span>
+                            <p id="location" class="text-sm font-bold text-blue-400 mt-0.5">—</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Next Action Items</span>
+                        <ul id="actionsList" class="list-disc list-inside text-sm text-slate-300 mt-1 space-y-1">
+                            <li class="text-slate-500 list-none">No pending actions.</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function processNote() {
+            const rawNote = document.getElementById('rawNote').value;
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const outputContent = document.getElementById('outputContent');
+
+            if (!rawNote.trim()) {
+                alert("Please type or paste an agent note first!");
+                return;
+            }
+
+            // UI UX: Show loading state, dim contents
+            submitBtn.disabled = true;
+            loading.classList.remove('hidden');
+            outputContent.classList.add('opacity-30');
+
+            try {
+                // Communicates with your local FastAPI backend server running on port 8000
+                const response = await fetch('http://127.0.0.1:8000/analyze-note', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ raw_note: rawNote })
+                });
+
+                if (!response.ok) throw new Error('API server returned an error');
+                
+                const data = await response.json();
+
+                // Populate UI elements with structured AI output fields
+                document.getElementById('summary').innerText = data.customer_summary;
+                document.getElementById('budget').innerText = data.budget;
+                document.getElementById('location').innerText = data.location;
+
+                // Handle dynamic badge styling based on customer interest level
+                const badge = document.getElementById('badge');
+                badge.innerText = data.interest_level.toUpperCase();
+                badge.className = "mt-1 inline-block text-xs font-bold px-3 py-1 rounded-full ";
+                
+                if (data.interest_level.toLowerCase() === 'hot') {
+                    badge.classList.add('bg-red-500/20', 'text-red-400');
+                } else if (data.interest_level.toLowerCase() === 'warm') {
+                    badge.classList.add('bg-amber-500/20', 'text-amber-400');
+                } else {
+                    badge.classList.add('bg-slate-700', 'text-slate-400');
+                }
+
+                // Clear and rebuild the actions list array dynamically
+                const listEl = document.getElementById('actionsList');
+                listEl.innerHTML = '';
+                data.next_actions.forEach(action => {
+                    const li = document.createElement('li');
+                    li.className = "text-slate-300";
+                    li.innerText = action;
+                    listEl.appendChild(li);
+                });
+
+            } catch (error) {
+                console.error(error);
+                alert("Could not process note. Make sure your backend FastAPI server is running.");
+            } finally {
+                // Revert UI layout back to active state
+                submitBtn.disabled = false;
+                loading.classList.add('hidden');
+                outputContent.classList.remove('opacity-30');
+            }
+        }
+    </script>
+</body>
+</html>
