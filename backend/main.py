@@ -28,7 +28,7 @@ class NoteInput(BaseModel):
     raw_note: str
 
 # 👇 MAKE SURE TO GENERATE A FREE KEY AT aistudio.google.com AND PASTE IT HERE
-client = genai.Client(api_key="AIzaSyBQgiwOu4VAsq2Tt6nlN7n3Pjg9eQj3HOo")
+client = genai.Client(api_key="AIzaSyAqgXDxwY5kr8EKpqAkQQ4gzcvMFAsNGTw")
 
 @app.post("/analyze-note", response_model=CRMAnalysis)
 async def analyze_note(data: NoteInput):
